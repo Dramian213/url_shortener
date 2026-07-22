@@ -1,15 +1,14 @@
 from pydantic import BaseModel
 from datetime import datetime
 
-class URLBase(BaseModel):
+class URLCreate(BaseModel):
     original_url: str
 
 class URLResponse(BaseModel):
     short_code: str
-    oryginal_url: str
-    clisks: int
+    original_url: str
+    clicks: int
     created_at: datetime
-
 
     class Config:
         from_attributes = True
