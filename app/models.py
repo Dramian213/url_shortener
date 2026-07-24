@@ -10,6 +10,7 @@ class URL(Base):
     short_code = Column(String, unique=True, index=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     clicks = Column(Integer, default=0)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
 class User(Base):
     __tablename__ = "users"
@@ -17,4 +18,4 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
