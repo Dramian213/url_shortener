@@ -7,6 +7,28 @@ from fastapi.responses import RedirectResponse
 from app.database import get_db, engine, Base
 from app import models, schemas
 
+from typing import List
+
+from app.security import hash_password, verify_password,create_access_token, decode_access_token
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
+outh2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+def get_current_user(token: str = Depends(outh2_scheme), db: Session = Depends(get_db)):
+    try:
+        payload = decode_access_token(token)
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return user
+
 app = FastAPI(title="URL Shortener")
 
 @app.get("/health")
@@ -18,13 +40,21 @@ def generate_short_code(length: int = 6) -> str:
     return "".join(random.choices(characters, k=length))
 
 @app.post("/shorten", response_model=schemas.URLResponse)
-def create_short_url(url: schemas.URLCreate, db: Session = Depends(get_db)):
+def create_short_url(
+    url: schemas.URLCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
     short_code = generate_short_code()
 
     while db.query(models.URL).filter(models.URL.short_code == short_code).first():
         short_code = generate_short_code()
 
-    db_url = models.URL(original_url=url.original_url, short_code=short_code)
+    db_url = models.URL(
+        original_url=url.original_url,
+        short_code=short_code,
+        owner_id=current_user.id
+    )
     db.add(db_url)
     db.commit()
     db.refresh(db_url)
@@ -52,26 +82,6 @@ def get_stats(short_code: str, db: Session = Depends(get_db)):
 
     return db_url
 
-from app.security import hash_password, verify_password,create_access_token, decode_access_token
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-
-outh2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
-def get_current_user(token: str = Depends(outh2_scheme), db: Session = Depends(get_db)):
-    try:
-        payload = decode_access_token(token)
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if user is None:
-        raise HTTPException(status_code=401, detail="User not found")
-
-    return user
-
 @app.post("/register", response_model=schemas.UserResponse)
 def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.username == user.username).first()
@@ -97,3 +107,9 @@ def login(from_data:OAuth2PasswordRequestForm = Depends(), db: Session = Depends
 
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/my_urls", response_model=list[schemas.URLResponse])
+def get_my_urls(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+
+    return db.query(models.URL).filter(models.URL.owner_id == current_user.id).all()
