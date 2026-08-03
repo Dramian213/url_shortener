@@ -3,6 +3,10 @@ import string
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from fastapi.responses import RedirectResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi import Request
 
 from app.database import get_db, engine, Base
 from app import models, schemas
@@ -30,6 +34,9 @@ def get_current_user(token: str = Depends(outh2_scheme), db: Session = Depends(g
     return user
 
 app = FastAPI(title="URL Shortener")
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 @app.get("/health")
 def health_check():
@@ -40,7 +47,9 @@ def generate_short_code(length: int = 6) -> str:
     return "".join(random.choices(characters, k=length))
 
 @app.post("/shorten", response_model=schemas.URLResponse)
+@limiter.limit("10/minute")
 def create_short_url(
+    request: Request,
     url: schemas.URLCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
@@ -60,6 +69,11 @@ def create_short_url(
     db.refresh(db_url)
 
     return db_url
+
+@app.get("/my_urls", response_model=list[schemas.URLResponse])
+def get_my_urls(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+
+    return db.query(models.URL).filter(models.URL.owner_id == current_user.id).all()
 
 @app.get("/{short_code}")
 def redirect_to_original(short_code: str, db: Session = Depends(get_db)):
@@ -83,7 +97,8 @@ def get_stats(short_code: str, db: Session = Depends(get_db)):
     return db_url
 
 @app.post("/register", response_model=schemas.UserResponse)
-def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register_user(request: Request, user: schemas.UserCreate, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.username == user.username).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already taken")
@@ -99,7 +114,8 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 @app.post("/login", response_model=schemas.Token)
-def login(from_data:OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, from_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.username == from_data.username).first()
 
     if not user or not verify_password(from_data.password, user.hashed_password):
@@ -109,7 +125,3 @@ def login(from_data:OAuth2PasswordRequestForm = Depends(), db: Session = Depends
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.get("/my_urls", response_model=list[schemas.URLResponse])
-def get_my_urls(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-
-    return db.query(models.URL).filter(models.URL.owner_id == current_user.id).all()
