@@ -59,8 +59,8 @@ Wymagania: Docker Desktop.
 |--------|------------------------|----------------------------------|
 | POST   | `/register`            | Rejestracja nowego użytkownika   |
 | POST   | `/login`               | Logowanie, zwraca token JWT      |
-| POST   | `/shorten`             | Tworzy skrócony link             | !
-| GET    | `/my_urls`             | Lista linków użytkownika         | !
+| POST   | `/shorten`             | Tworzy skrócony link   !         | 
+| GET    | `/my_urls`             | Lista linków użytkownika  !      | 
 | GET    | `/{short_code}`        | Przekierowanie na oryginalny URL |
 | GET    | `/stats/{short_code}`  | Statystyki kliknięć linku        |
 | GET    | `/health`              | Healthcheck                      |

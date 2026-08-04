@@ -54,15 +54,15 @@ Requirements: Docker Desktop.
 
 ## Endpoints
 
-| Method |         Path         |         Description             |
-|--------|----------------------|---------------------------------|
-| POST   | `/register`          | Register a new user             |
-| POST   | `/login`             | Log in, returns a JWT           |
-| POST   | `/shorten`           | Create a short link             | ! 
-| GET    | `/my_urls`           | List the logged-in user's links | !
-| GET    | `/{short_code}`      | Redirect to the original URL    |
-| GET    | `/stats/{short_code}`| Click statistics for a link     |
-| GET    | `/health`            | Health check                    |
+| Method |         Path         |         Description              |
+|--------|----------------------|----------------------------------|
+| POST   | `/register`          | Register a new user              |
+| POST   | `/login`             | Log in, returns a JWT            |
+| POST   | `/shorten`           | Create a short link  !           |
+| GET    | `/my_urls`           | List the logged-in user's links !|
+| GET    | `/{short_code}`      | Redirect to the original URL     |
+| GET    | `/stats/{short_code}`| Click statistics for a link      |
+| GET    | `/health`            | Health check                     |
 
 ### Legend 
 
